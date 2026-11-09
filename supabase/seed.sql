@@ -1,0 +1,42 @@
+-- ==============================================================================
+-- COLLABDOCS DATABASE SEED DATA
+-- Purpose: Sample records for local testing and demonstration
+-- Note: Replace UUIDs with actual auth.users IDs if running in production Supabase
+-- ==============================================================================
+
+-- Example sample profiles (matching auth.users in Supabase Auth):
+-- User A (Owner): alice@collabdocs.dev (Full Name: Alice Walker)
+-- User B (Collaborator): bob@collabdocs.dev (Full Name: Bob Smith)
+-- User C (Unauthorized): charlie@collabdocs.dev (Full Name: Charlie Davis)
+
+-- Sample document content structure (Tiptap JSONB)
+-- {
+--   "type": "doc",
+--   "content": [
+--     {
+--       "type": "heading",
+--       "attrs": { "level": 1 },
+--       "content": [{ "type": "text", "text": "Product Strategy Q3" }]
+--     },
+--     {
+--       "type": "paragraph",
+--       "content": [
+--         { "type": "text", "text": "Welcome to CollabDocs. This document demonstrates rich-text editing with " },
+--         { "type": "text", "marks": [{ "type": "bold" }], "text": "bold text" },
+--         { "type": "text", "text": ", " },
+--         { "type": "text", "marks": [{ "type": "italic" }], "text": "italic emphasis" },
+--         { "type": "text", "text": ", and " },
+--         { "type": "text", "marks": [{ "type": "underline" }], "text": "underlined text" },
+--         { "type": "text", "text": "." }
+--       ]
+--     },
+--     {
+--       "type": "bulletList",
+--       "content": [
+--         { "type": "listItem", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Autonomous document synchronization" }] }] },
+--         { "type": "listItem", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Granular role-based permissions (Viewer vs Editor)" }] }] },
+--         { "type": "listItem", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Instant Markdown & TXT file ingestion" }] }] }
+--       ]
+--     }
+--   ]
+-- }

@@ -1,0 +1,6 @@
+{
+  "name": "CollabDocs - Document Management & Editor",
+  "description": "Collaborative document management and rich-text editing platform with Supabase persistence, role-based access control, file import, and autosave.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
