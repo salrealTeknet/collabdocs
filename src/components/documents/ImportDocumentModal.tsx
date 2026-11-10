@@ -10,6 +10,8 @@ import { fileImportService } from '../../services/fileImportService';
 import { documentService } from '../../services/documentService';
 import { FileImportResult, DocumentRecord } from '../../types';
 
+import { SqlMigrationModal } from '../common/SqlMigrationModal';
+
 interface ImportDocumentModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -27,6 +29,7 @@ export const ImportDocumentModal: React.FC<ImportDocumentModalProps> = ({
   const [customTitle, setCustomTitle] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMigrationModalOpen, setIsMigrationModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const resetState = () => {
@@ -119,7 +122,8 @@ export const ImportDocumentModal: React.FC<ImportDocumentModalProps> = ({
   const nodeCount = parsedData?.content.content?.length || 0;
 
   return (
-    <Modal
+    <>
+      <Modal
       isOpen={isOpen}
       onClose={handleClose}
       title="Import Document (.md / .txt)"
@@ -128,9 +132,23 @@ export const ImportDocumentModal: React.FC<ImportDocumentModalProps> = ({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="p-3 rounded-lg text-xs bg-rose-50 border border-rose-200 text-rose-800 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>{error}</span>
+          <div className="space-y-2">
+            <div className="p-3 rounded-lg text-xs bg-rose-50 border border-rose-200 text-rose-800 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{error}</span>
+            </div>
+            {(error.includes('schema cache') || error.includes('public.documents')) && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center justify-between">
+                <span>The table &apos;public.documents&apos; needs to be created in your Supabase database.</span>
+                <button
+                  type="button"
+                  onClick={() => setIsMigrationModalOpen(true)}
+                  className="px-2.5 py-1 bg-blue-600 text-white rounded-lg font-medium text-[11px] shrink-0 hover:bg-blue-700 ml-2"
+                >
+                  View SQL Fix
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -245,5 +263,10 @@ export const ImportDocumentModal: React.FC<ImportDocumentModalProps> = ({
         </div>
       </form>
     </Modal>
+    <SqlMigrationModal
+      isOpen={isMigrationModalOpen}
+      onClose={() => setIsMigrationModalOpen(false)}
+    />
+    </>
   );
 };

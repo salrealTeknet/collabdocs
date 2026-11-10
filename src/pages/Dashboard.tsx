@@ -23,6 +23,7 @@ import {
   Share2,
   Edit2,
   AlertCircle,
+  Database,
 } from 'lucide-react';
 import { Navbar } from '../components/common/Navbar';
 import { DocumentCard } from '../components/documents/DocumentCard';
@@ -31,6 +32,7 @@ import { RenameDocumentModal } from '../components/documents/RenameDocumentModal
 import { ImportDocumentModal } from '../components/documents/ImportDocumentModal';
 import { ShareModal } from '../components/documents/ShareModal';
 import { Modal } from '../components/common/Modal';
+import { SqlMigrationModal } from '../components/common/SqlMigrationModal';
 import { documentService } from '../services/documentService';
 import { DocumentWithMeta, DocumentRecord, UserProfile } from '../types';
 
@@ -65,6 +67,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [shareTargetDoc, setShareTargetDoc] = useState<DocumentWithMeta | null>(null);
   const [deleteTargetDoc, setDeleteTargetDoc] = useState<DocumentWithMeta | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isMigrationModalOpen, setIsMigrationModalOpen] = useState(false);
 
   // Fetch documents
   const fetchDocuments = useCallback(async () => {
@@ -368,14 +371,41 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
           {/* Error notice */}
           {error && (
-            <div className="p-3 mb-6 rounded-lg text-xs bg-rose-50 border border-rose-200 text-rose-800 flex items-center justify-between">
-              <span>{error}</span>
-              <button
-                onClick={fetchDocuments}
-                className="underline font-medium hover:text-rose-900"
-              >
-                Retry
-              </button>
+            <div className="mb-6 space-y-2">
+              <div className="p-3 rounded-lg text-xs bg-rose-50 border border-rose-200 text-rose-800 flex items-center justify-between">
+                <span>{error}</span>
+                <button
+                  onClick={fetchDocuments}
+                  className="underline font-medium hover:text-rose-900 cursor-pointer"
+                >
+                  Retry
+                </button>
+              </div>
+
+              {(error.toLowerCase().includes('schema cache') ||
+                error.toLowerCase().includes('public.documents') ||
+                error.toLowerCase().includes('relation')) && (
+                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-2">
+                    <Database className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold block text-amber-950">
+                        Supabase Database Setup Required
+                      </span>
+                      <span className="text-[11px] text-amber-800">
+                        The table &apos;public.documents&apos; does not exist yet. Run the SQL migration in your Supabase project to initialize tables and Row Level Security.
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsMigrationModalOpen(true)}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-xs shrink-0 transition-colors shadow-xs cursor-pointer"
+                  >
+                    View SQL Fix
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -712,6 +742,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
       </Modal>
+
+      <SqlMigrationModal
+        isOpen={isMigrationModalOpen}
+        onClose={() => setIsMigrationModalOpen(false)}
+      />
     </div>
   );
 };

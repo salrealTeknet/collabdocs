@@ -20,6 +20,20 @@ const DEFAULT_INITIAL_CONTENT: JSONContent = {
   ],
 };
 
+export const SCHEMA_ERROR_MESSAGE =
+  "Could not find the table 'public.documents' in your Supabase schema cache. Your Supabase project is connected, but the database tables have not been created yet. Please run the SQL migration in your Supabase SQL Editor.";
+
+function isSchemaCacheError(errMsg: string): boolean {
+  const msg = (errMsg || '').toLowerCase();
+  return (
+    msg.includes('could not find the table') ||
+    msg.includes('schema cache') ||
+    msg.includes('relation "public.documents" does not exist') ||
+    msg.includes('relation "public.profiles" does not exist') ||
+    msg.includes('relation "public.document_shares" does not exist')
+  );
+}
+
 export const documentService = {
   /**
    * Validates document title
@@ -100,7 +114,10 @@ export const documentService = {
           });
 
         return { owned, shared };
-      } catch (err) {
+      } catch (err: any) {
+        if (isSchemaCacheError(err?.message)) {
+          throw new Error(SCHEMA_ERROR_MESSAGE);
+        }
         console.warn('Failed to fetch documents from Supabase, falling back to local store:', err);
       }
     }
@@ -234,6 +251,9 @@ export const documentService = {
         .single();
 
       if (error) {
+        if (isSchemaCacheError(error.message)) {
+          throw new Error(SCHEMA_ERROR_MESSAGE);
+        }
         throw new Error(`Failed to create document: ${error.message}`);
       }
 

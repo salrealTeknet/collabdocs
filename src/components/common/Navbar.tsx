@@ -9,10 +9,12 @@ import {
   LogOut,
   ChevronDown,
   BookOpen,
+  Database,
 } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { authService } from '../../services/authService';
 import { SetupGuideModal } from './SetupGuideModal';
+import { SqlMigrationModal } from './SqlMigrationModal';
 
 interface NavbarProps {
   currentUser: UserProfile | null;
@@ -25,6 +27,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onUserChanged,
 }) => {
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
+  const [isSqlModalOpen, setIsSqlModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -64,10 +67,20 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right side controls */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Database SQL button */}
+          <button
+            onClick={() => setIsSqlModalOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border border-neutral-200 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 transition-colors cursor-pointer"
+            title="View Supabase SQL Migration Script"
+          >
+            <Database className="w-3 h-3 text-neutral-500" />
+            <span className="hidden md:inline">Database SQL</span>
+          </button>
+
           {/* Setup Guide button */}
           <button
             onClick={() => setIsGuideModalOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border border-neutral-200 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border border-neutral-200 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 transition-colors cursor-pointer"
             title="View Setup & Run Guide"
           >
             <BookOpen className="w-3 h-3 text-neutral-500" />
@@ -79,7 +92,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* User profile button */}
               <button
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center gap-2 py-1 px-2 rounded-lg hover:bg-neutral-100 border border-transparent hover:border-neutral-200 transition-colors"
+                className="flex items-center gap-2 py-1 px-2 rounded-lg hover:bg-neutral-100 border border-transparent hover:border-neutral-200 transition-colors cursor-pointer"
                 aria-expanded={isUserMenuOpen}
               >
                 <div className="w-7 h-7 rounded-full bg-neutral-900 text-white flex items-center justify-center text-xs font-semibold">
@@ -114,8 +127,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
 
                     <button
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsSqlModalOpen(true);
+                      }}
+                      className="w-full text-left px-3.5 py-2 text-xs text-neutral-700 hover:bg-neutral-50 flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <Database className="w-3.5 h-3.5 text-neutral-500" />
+                      <span>Database SQL Migration</span>
+                    </button>
+
+                    <button
                       onClick={handleLogout}
-                      className="w-full text-left px-3.5 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors mt-1"
+                      className="w-full text-left px-3.5 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors mt-1 cursor-pointer"
                     >
                       <LogOut className="w-3.5 h-3.5" />
                       Sign Out
@@ -133,6 +157,11 @@ export const Navbar: React.FC<NavbarProps> = ({
       <SetupGuideModal
         isOpen={isGuideModalOpen}
         onClose={() => setIsGuideModalOpen(false)}
+      />
+
+      <SqlMigrationModal
+        isOpen={isSqlModalOpen}
+        onClose={() => setIsSqlModalOpen(false)}
       />
     </>
   );
