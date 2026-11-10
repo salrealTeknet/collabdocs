@@ -33,17 +33,22 @@ export default function App() {
     };
 
     window.addEventListener('hashchange', handleHashChange);
-    // Initial check
     handleHashChange();
 
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // Listen to auth state changes
+  // Listen to auth state changes and restore existing authenticated session
   useEffect(() => {
     const unsubscribe = authService.onAuthStateChange(user => {
       setCurrentUser(user);
       setIsInitializing(false);
+
+      // If user logs out, reset document hash to dashboard
+      if (!user && window.location.hash.startsWith('#/document/')) {
+        window.location.hash = '';
+        setActiveDocumentId(null);
+      }
     });
 
     return () => unsubscribe();
@@ -59,28 +64,37 @@ export default function App() {
     window.location.hash = '#/';
   };
 
+  const handleUserChanged = (user: UserProfile | null) => {
+    setCurrentUser(user);
+    if (!user) {
+      setActiveDocumentId(null);
+      window.location.hash = '';
+      setAuthView('login');
+    }
+  };
+
   if (isInitializing) {
     return (
       <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-4">
         <RefreshCw className="w-7 h-7 text-blue-600 animate-spin mb-3" />
-        <p className="text-xs font-medium text-neutral-600">Initializing CollabDocs...</p>
+        <p className="text-xs font-medium text-neutral-600">Restoring your CollabDocs workspace...</p>
       </div>
     );
   }
 
-  // Not logged in -> Show Login or Register
+  // Not logged in -> Show Login or Register by default
   if (!currentUser) {
     if (authView === 'register') {
       return (
         <Register
-          onRegisterSuccess={user => setCurrentUser(user)}
+          onRegisterSuccess={user => handleUserChanged(user)}
           onNavigateToLogin={() => setAuthView('login')}
         />
       );
     }
     return (
       <Login
-        onLoginSuccess={user => setCurrentUser(user)}
+        onLoginSuccess={user => handleUserChanged(user)}
         onNavigateToRegister={() => setAuthView('register')}
       />
     );
@@ -101,7 +115,7 @@ export default function App() {
   return (
     <Dashboard
       currentUser={currentUser}
-      onUserChanged={setCurrentUser}
+      onUserChanged={handleUserChanged}
       onOpenDocument={handleOpenDocument}
     />
   );

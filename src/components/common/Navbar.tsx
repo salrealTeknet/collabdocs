@@ -4,19 +4,27 @@
  */
 
 import React, { useState } from 'react';
-import { FileText, LogOut, ChevronDown } from 'lucide-react';
+import {
+  FileText,
+  LogOut,
+  ChevronDown,
+  BookOpen,
+} from 'lucide-react';
 import { UserProfile } from '../../types';
 import { authService } from '../../services/authService';
+import { SetupGuideModal } from './SetupGuideModal';
 
 interface NavbarProps {
   currentUser: UserProfile | null;
   onUserChanged: (user: UserProfile | null) => void;
+  onRefreshDocs?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   currentUser,
   onUserChanged,
 }) => {
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -56,6 +64,16 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right side controls */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Setup Guide button */}
+          <button
+            onClick={() => setIsGuideModalOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border border-neutral-200 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
+            title="View Setup & Run Guide"
+          >
+            <BookOpen className="w-3 h-3 text-neutral-500" />
+            <span className="hidden md:inline">Setup Guide</span>
+          </button>
+
           {currentUser ? (
             <div className="relative">
               {/* User profile button */}
@@ -71,7 +89,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <div className="text-xs font-medium text-neutral-800 leading-tight">
                     {currentUser.full_name}
                   </div>
-                  <div className="text-[10px] text-neutral-400 leading-tight truncate max-w-[120px]">
+                  <div className="text-[10px] text-neutral-400 leading-tight truncate max-w-[140px]">
                     {currentUser.email}
                   </div>
                 </div>
@@ -111,6 +129,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
       </header>
+
+      <SetupGuideModal
+        isOpen={isGuideModalOpen}
+        onClose={() => setIsGuideModalOpen(false)}
+      />
     </>
   );
 };

@@ -24,6 +24,9 @@ function notifyListeners(user: UserProfile | null) {
 }
 
 export const authService = {
+  /**
+   * Retrieves the current authenticated user session
+   */
   async getCurrentUser(): Promise<UserProfile | null> {
     const supabase = getSupabaseClient();
     if (supabase && isSupabaseConfigured()) {
@@ -32,7 +35,8 @@ export const authService = {
         if (error || !session?.user) {
           return null;
         }
-        // Fetch matching profile
+
+        // Fetch matching profile from the profiles table
         const { data: profile } = await supabase
           .from('profiles')
           .select('*')
@@ -43,21 +47,32 @@ export const authService = {
           return profile as UserProfile;
         }
 
+        // Fallback to auth metadata if profile record is still propagating
         return {
           id: session.user.id,
           email: session.user.email || '',
-          full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+          full_name:
+            session.user.user_metadata?.full_name ||
+            session.user.email?.split('@')[0] ||
+            'User',
           created_at: session.user.created_at,
         };
       } catch (err) {
-        console.warn('Failed to get current user from Supabase, using local fallback:', err);
+        console.warn('Failed to retrieve current user from Supabase:', err);
       }
     }
 
     return localDB.getSessionUser();
   },
 
-  async signUp(email: string, password: string, fullName: string): Promise<UserProfile> {
+  /**
+   * Registers a new account via Supabase Auth
+   */
+  async signUp(
+    email: string,
+    password: string,
+    fullName: string
+  ): Promise<UserProfile & { needsEmailConfirmation?: boolean }> {
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = fullName.trim() || cleanEmail.split('@')[0];
 
@@ -81,7 +96,15 @@ export const authService = {
       });
 
       if (error) {
-        throw new Error(`Supabase Registration Error: ${error.message}`);
+        const msg = error.message.toLowerCase();
+        if (
+          msg.includes('already registered') ||
+          msg.includes('already exists') ||
+          msg.includes('user_already_exists')
+        ) {
+          throw new Error('An account with this email address already exists. Please sign in instead.');
+        }
+        throw new Error(error.message);
       }
 
       if (!data.user) {
@@ -95,36 +118,47 @@ export const authService = {
         created_at: data.user.created_at || new Date().toISOString(),
       };
 
-      // If Supabase returned an authenticated session (email confirmation off):
+      // If Supabase returned an active session (email confirmation disabled in Supabase)
       if (data.session) {
         try {
           await supabase.from('profiles').upsert([profile]);
         } catch (upsertErr: any) {
-          console.warn('Profile upsert note (trigger may have already handled it):', upsertErr.message);
+          console.warn('Profile upsert note:', upsertErr?.message);
         }
-      } else {
-        // Try automatic sign in to establish session if email confirmation is not enforced
-        try {
-          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
-            email: cleanEmail,
-            password,
-          });
-          if (!signInErr && signInData?.session) {
-            await supabase.from('profiles').upsert([profile]);
-          }
-        } catch {
-          // If sign in fails, email confirmation is active in Supabase project
-        }
+        notifyListeners(profile);
+        return profile;
       }
 
-      notifyListeners(profile);
-      return profile;
+      // Attempt automatic sign-in if session was not attached
+      try {
+        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+        });
+        if (!signInErr && signInData?.session) {
+          try {
+            await supabase.from('profiles').upsert([profile]);
+          } catch {
+            // database trigger handled it
+          }
+          notifyListeners(profile);
+          return profile;
+        }
+      } catch {
+        // Email confirmation is required by Supabase project settings
+      }
+
+      // No active session: email verification required
+      return {
+        ...profile,
+        needsEmailConfirmation: true,
+      };
     }
 
-    // Local mode (when Supabase credentials are not provided)
+    // Local mode (when Supabase environment variables are not yet provided)
     const existing = localDB.getProfileByEmail(cleanEmail);
     if (existing) {
-      throw new Error('An account with this email address already exists. Please sign in.');
+      throw new Error('An account with this email address already exists. Please sign in instead.');
     }
 
     const newProfile: UserProfile = {
@@ -141,11 +175,14 @@ export const authService = {
     return newProfile;
   },
 
+  /**
+   * Signs in a user with email and password
+   */
   async signIn(email: string, password: string): Promise<UserProfile> {
     const cleanEmail = email.trim().toLowerCase();
 
     if (!cleanEmail || !password) {
-      throw new Error('Email and password are required.');
+      throw new Error('Please enter both your email address and password.');
     }
 
     const supabase = getSupabaseClient();
@@ -156,7 +193,14 @@ export const authService = {
       });
 
       if (error) {
-        throw new Error(`Supabase Login Error: ${error.message}`);
+        const msg = error.message.toLowerCase();
+        if (msg.includes('invalid login credentials')) {
+          throw new Error('Invalid email or password. Please verify your credentials and try again.');
+        }
+        if (msg.includes('email not confirmed')) {
+          throw new Error('Your email address has not been confirmed yet. Please check your inbox for the confirmation link.');
+        }
+        throw new Error(error.message);
       }
 
       if (!data.user) {
@@ -181,7 +225,7 @@ export const authService = {
       return userProfile;
     }
 
-    // Local mode check
+    // Local mode fallback
     const profile = localDB.getProfileByEmail(cleanEmail);
     if (!profile) {
       throw new Error('No account found with this email. Please create an account first.');
@@ -197,6 +241,9 @@ export const authService = {
     return profile;
   },
 
+  /**
+   * Signs out the current user session
+   */
   async signOut(): Promise<void> {
     const supabase = getSupabaseClient();
     if (supabase && isSupabaseConfigured()) {
@@ -210,21 +257,26 @@ export const authService = {
     notifyListeners(null);
   },
 
+  /**
+   * Listens to authentication state changes and restores persistent sessions
+   */
   onAuthStateChange(callback: AuthStateChangeCallback): () => void {
     listeners.add(callback);
-    // Initial emission
+
+    // Initial check to restore existing session
     this.getCurrentUser().then(user => callback(user));
 
     const supabase = getSupabaseClient();
     let authSubscription: { unsubscribe: () => void } | null = null;
+
     if (supabase && isSupabaseConfigured()) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (!session?.user) {
-          callback(null);
+          notifyListeners(null);
           return;
         }
         const user = await this.getCurrentUser();
-        callback(user);
+        notifyListeners(user);
       });
       authSubscription = subscription;
     }
@@ -237,6 +289,9 @@ export const authService = {
     };
   },
 
+  /**
+   * Search registered profiles for sharing
+   */
   async searchProfiles(query: string): Promise<UserProfile[]> {
     const q = query.trim().toLowerCase();
     if (!q) return [];

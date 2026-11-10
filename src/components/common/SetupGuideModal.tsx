@@ -124,7 +124,7 @@ VITE_SUPABASE_ANON_KEY="your-anon-public-key"`;
               in your Supabase SQL Editor.
             </li>
             <li>
-              Add your Supabase URL and Anon Key to <code className="bg-neutral-200/80 px-1 py-0.5 rounded font-mono text-[10px]">.env</code> or enter them directly via the <strong>Database Status</strong> pill in the navbar.
+              Add your Supabase URL and Anon Key to <code className="bg-neutral-200/80 px-1 py-0.5 rounded font-mono text-[10px]">.env</code> as <code className="bg-neutral-200/80 px-1 py-0.5 rounded font-mono text-[10px]">VITE_SUPABASE_URL</code> and <code className="bg-neutral-200/80 px-1 py-0.5 rounded font-mono text-[10px]">VITE_SUPABASE_ANON_KEY</code>.
             </li>
           </ol>
         </div>

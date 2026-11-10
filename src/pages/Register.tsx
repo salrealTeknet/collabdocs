@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   FileText,
   ArrowRight,
@@ -11,13 +11,12 @@ import {
   Mail,
   User,
   AlertCircle,
-  Database,
-  CheckCircle2,
+  MailCheck,
+  Info,
 } from 'lucide-react';
 import { authService } from '../services/authService';
 import { UserProfile } from '../types';
-import { getStoredSupabaseConfig } from '../lib/supabase';
-import { DatabaseConfigModal } from '../components/common/DatabaseConfigModal';
+import { isSupabaseConfigured } from '../lib/supabase';
 
 interface RegisterProps {
   onRegisterSuccess: (user: UserProfile) => void;
@@ -34,18 +33,8 @@ export const Register: React.FC<RegisterProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isDbModalOpen, setIsDbModalOpen] = useState(false);
-  const [dbConfig, setDbConfig] = useState(getStoredSupabaseConfig());
-
-  useEffect(() => {
-    const handleConfigChange = () => {
-      setDbConfig(getStoredSupabaseConfig());
-    };
-    window.addEventListener('collabdocs_supabase_config_changed', handleConfigChange);
-    return () => {
-      window.removeEventListener('collabdocs_supabase_config_changed', handleConfigChange);
-    };
-  }, []);
+  const [confirmationEmailSent, setConfirmationEmailSent] = useState<string | null>(null);
+  const isConfigured = isSupabaseConfigured();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,71 +63,77 @@ export const Register: React.FC<RegisterProps> = ({
     try {
       setIsLoading(true);
       const user = await authService.signUp(email.trim(), password, fullName.trim());
-      onRegisterSuccess(user);
+
+      if ((user as any).needsEmailConfirmation) {
+        setConfirmationEmailSent(email.trim());
+      } else {
+        onRegisterSuccess(user);
+      }
     } catch (err: any) {
-      setError(err.message || 'Registration failed.');
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <>
-      <div className="min-h-screen bg-neutral-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="flex items-center justify-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md">
-              <FileText className="w-5 h-5" />
-            </div>
-            <span className="text-2xl font-bold tracking-tight text-neutral-900">CollabDocs</span>
+    <div className="min-h-screen bg-neutral-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="flex items-center justify-center gap-2.5">
+          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md">
+            <FileText className="w-5 h-5" />
           </div>
-          <h2 className="mt-4 text-center text-xl font-semibold text-neutral-800">
-            Create your CollabDocs account
-          </h2>
-          <p className="mt-1 text-center text-xs text-neutral-500">
-            Join your team to write, organize, and share documents
-          </p>
+          <span className="text-2xl font-bold tracking-tight text-neutral-900">CollabDocs</span>
         </div>
+        <h2 className="mt-4 text-center text-xl font-semibold text-neutral-800">
+          Create your CollabDocs account
+        </h2>
+        <p className="mt-1 text-center text-xs text-neutral-500">
+          Join your team to write, organize, and share documents
+        </p>
+      </div>
 
-        <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
-          {/* Supabase backend status banner */}
-          <div
-            onClick={() => setIsDbModalOpen(true)}
-            className={`cursor-pointer mb-3 px-3.5 py-2 rounded-xl text-xs flex items-center justify-between border transition-colors ${
-              dbConfig.isConfigured
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100/70'
-                : 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100/70'
-            }`}
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <Database
-                className={`w-3.5 h-3.5 shrink-0 ${
-                  dbConfig.isConfigured ? 'text-emerald-600' : 'text-amber-600'
-                }`}
-              />
-              <span className="truncate">
-                {dbConfig.isConfigured ? (
-                  <>
-                    Target Database: <strong className="font-semibold">Supabase Connected</strong>
-                  </>
-                ) : (
-                  <>
-                    Target Database: <strong className="font-semibold">Local Storage</strong> (Click to connect Supabase)
-                  </>
-                )}
-              </span>
+      <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
+        {/* Developer configuration notice when environment variables are not set */}
+        {!isConfigured && (
+          <div className="mb-4 p-3.5 rounded-xl text-xs bg-amber-50/90 border border-amber-200 text-amber-900 flex items-start gap-2.5">
+            <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-semibold text-amber-950">Developer Notice: Supabase Environment</p>
+              <p className="text-amber-800 leading-relaxed text-[11px]">
+                To persist accounts and documents in your Supabase cloud database, configure{' '}
+                <code className="bg-amber-100/90 px-1 py-0.5 rounded font-mono font-medium text-amber-950">VITE_SUPABASE_URL</code>{' '}
+                and{' '}
+                <code className="bg-amber-100/90 px-1 py-0.5 rounded font-mono font-medium text-amber-950">VITE_SUPABASE_ANON_KEY</code>{' '}
+                in your <code className="bg-amber-100/90 px-1 py-0.5 rounded font-mono">.env</code> file.
+              </p>
             </div>
-            <span
-              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
-                dbConfig.isConfigured
-                  ? 'bg-emerald-200/80 text-emerald-900'
-                  : 'bg-amber-200/80 text-amber-900'
-              }`}
-            >
-              {dbConfig.isConfigured ? 'Live' : 'Configure'}
-            </span>
           </div>
+        )}
 
+        {/* Email verification screen if confirmation email was dispatched */}
+        {confirmationEmailSent ? (
+          <div className="bg-white py-8 px-6 sm:px-10 shadow-sm border border-neutral-200/90 rounded-2xl text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center">
+              <MailCheck className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-semibold text-neutral-900">Verify your email address</h3>
+            <p className="text-xs text-neutral-600 leading-relaxed max-w-sm mx-auto">
+              We have sent a confirmation link to{' '}
+              <strong className="font-semibold text-neutral-900">{confirmationEmailSent}</strong>.
+              Please check your inbox to confirm your account, then sign in to your CollabDocs workspace.
+            </p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={onNavigateToLogin}
+                className="w-full py-2.5 px-4 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer"
+              >
+                Go to Sign In
+              </button>
+            </div>
+          </div>
+        ) : (
           <div className="bg-white py-8 px-6 sm:px-10 shadow-sm border border-neutral-200/90 rounded-2xl space-y-5">
             {error && (
               <div className="p-3 rounded-lg text-xs bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-2">
@@ -160,6 +155,7 @@ export const Register: React.FC<RegisterProps> = ({
                     value={fullName}
                     onChange={e => setFullName(e.target.value)}
                     placeholder="Ada Lovelace"
+                    autoComplete="name"
                     className="w-full pl-9 pr-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
                   />
                 </div>
@@ -177,6 +173,7 @@ export const Register: React.FC<RegisterProps> = ({
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     placeholder="ada@example.com"
+                    autoComplete="email"
                     className="w-full pl-9 pr-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
                   />
                 </div>
@@ -192,6 +189,7 @@ export const Register: React.FC<RegisterProps> = ({
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     placeholder="Min 6 characters"
+                    autoComplete="new-password"
                     className="w-full pl-9 pr-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
                   />
                 </div>
@@ -209,6 +207,7 @@ export const Register: React.FC<RegisterProps> = ({
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
                     placeholder="Re-enter password"
+                    autoComplete="new-password"
                     className="w-full pl-9 pr-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
                   />
                 </div>
@@ -217,15 +216,9 @@ export const Register: React.FC<RegisterProps> = ({
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-2.5 px-4 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50"
+                className="w-full py-2.5 px-4 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
               >
-                <span>
-                  {isLoading
-                    ? 'Creating account...'
-                    : dbConfig.isConfigured
-                    ? 'Register in Supabase'
-                    : 'Create Account'}
-                </span>
+                <span>{isLoading ? 'Creating account...' : 'Create Account'}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </form>
@@ -236,21 +229,15 @@ export const Register: React.FC<RegisterProps> = ({
                 <button
                   type="button"
                   onClick={onNavigateToLogin}
-                  className="font-medium text-blue-600 hover:underline"
+                  className="font-medium text-blue-600 hover:underline cursor-pointer"
                 >
                   Sign in
                 </button>
               </p>
             </div>
           </div>
-        </div>
+        )}
       </div>
-
-      <DatabaseConfigModal
-        isOpen={isDbModalOpen}
-        onClose={() => setIsDbModalOpen(false)}
-        onConfigChanged={() => setDbConfig(getStoredSupabaseConfig())}
-      />
-    </>
+    </div>
   );
 };

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   FileText,
   ArrowRight,
@@ -12,13 +12,12 @@ import {
   AlertCircle,
   UserPlus,
   BookOpen,
-  Database,
+  Info,
 } from 'lucide-react';
 import { authService } from '../services/authService';
 import { UserProfile } from '../types';
-import { getStoredSupabaseConfig } from '../lib/supabase';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { SetupGuideModal } from '../components/common/SetupGuideModal';
-import { DatabaseConfigModal } from '../components/common/DatabaseConfigModal';
 
 interface LoginProps {
   onLoginSuccess: (user: UserProfile) => void;
@@ -31,24 +30,13 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
-  const [isDbModalOpen, setIsDbModalOpen] = useState(false);
-  const [dbConfig, setDbConfig] = useState(getStoredSupabaseConfig());
-
-  useEffect(() => {
-    const handleConfigChange = () => {
-      setDbConfig(getStoredSupabaseConfig());
-    };
-    window.addEventListener('collabdocs_supabase_config_changed', handleConfigChange);
-    return () => {
-      window.removeEventListener('collabdocs_supabase_config_changed', handleConfigChange);
-    };
-  }, []);
+  const isConfigured = isSupabaseConfigured();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!email || !password) {
+    if (!email.trim() || !password) {
       setError('Please provide both your email address and password.');
       return;
     }
@@ -84,43 +72,22 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
         </div>
 
         <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
-          {/* Supabase backend status banner */}
-          <div
-            onClick={() => setIsDbModalOpen(true)}
-            className={`cursor-pointer mb-3 px-3.5 py-2 rounded-xl text-xs flex items-center justify-between border transition-colors ${
-              dbConfig.isConfigured
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100/70'
-                : 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100/70'
-            }`}
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <Database
-                className={`w-3.5 h-3.5 shrink-0 ${
-                  dbConfig.isConfigured ? 'text-emerald-600' : 'text-amber-600'
-                }`}
-              />
-              <span className="truncate">
-                {dbConfig.isConfigured ? (
-                  <>
-                    Target Database: <strong className="font-semibold">Supabase Connected</strong>
-                  </>
-                ) : (
-                  <>
-                    Target Database: <strong className="font-semibold">Local Storage</strong> (Click to connect Supabase)
-                  </>
-                )}
-              </span>
+          {/* Developer configuration notice when environment variables are not set */}
+          {!isConfigured && (
+            <div className="mb-4 p-3.5 rounded-xl text-xs bg-amber-50/90 border border-amber-200 text-amber-900 flex items-start gap-2.5">
+              <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold text-amber-950">Developer Notice: Supabase Environment</p>
+                <p className="text-amber-800 leading-relaxed text-[11px]">
+                  To connect CollabDocs to your persistent Supabase cloud database, configure{' '}
+                  <code className="bg-amber-100/90 px-1 py-0.5 rounded font-mono font-medium text-amber-950">VITE_SUPABASE_URL</code>{' '}
+                  and{' '}
+                  <code className="bg-amber-100/90 px-1 py-0.5 rounded font-mono font-medium text-amber-950">VITE_SUPABASE_ANON_KEY</code>{' '}
+                  in your project <code className="bg-amber-100/90 px-1 py-0.5 rounded font-mono">.env</code> file.
+                </p>
+              </div>
             </div>
-            <span
-              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
-                dbConfig.isConfigured
-                  ? 'bg-emerald-200/80 text-emerald-900'
-                  : 'bg-amber-200/80 text-amber-900'
-              }`}
-            >
-              {dbConfig.isConfigured ? 'Live' : 'Configure'}
-            </span>
-          </div>
+          )}
 
           <div className="bg-white py-8 px-6 sm:px-10 shadow-sm border border-neutral-200/90 rounded-2xl space-y-6">
             {error && (
@@ -143,6 +110,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     placeholder="you@example.com"
+                    autoComplete="email"
                     className="w-full pl-9 pr-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
                   />
                 </div>
@@ -158,6 +126,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     placeholder="••••••••"
+                    autoComplete="current-password"
                     className="w-full pl-9 pr-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
                   />
                 </div>
@@ -166,7 +135,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-2.5 px-4 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50"
+                className="w-full py-2.5 px-4 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
               >
                 <span>{isLoading ? 'Signing in...' : 'Sign In'}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -180,7 +149,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
               <button
                 type="button"
                 onClick={onNavigateToRegister}
-                className="w-full py-2 px-3 text-xs font-medium text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                className="w-full py-2 px-3 text-xs font-medium text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <UserPlus className="w-3.5 h-3.5 text-neutral-500" />
                 <span>Create an Account</span>
@@ -189,7 +158,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
               <button
                 type="button"
                 onClick={() => setIsGuideOpen(true)}
-                className="text-xs text-neutral-500 hover:text-neutral-800 flex items-center gap-1.5 mt-1 underline decoration-dotted"
+                className="text-xs text-neutral-500 hover:text-neutral-800 flex items-center gap-1.5 mt-1 underline decoration-dotted cursor-pointer"
               >
                 <BookOpen className="w-3.5 h-3.5 text-blue-600" />
                 <span>How to set up & run this app</span>
@@ -200,11 +169,6 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
       </div>
 
       <SetupGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
-      <DatabaseConfigModal
-        isOpen={isDbModalOpen}
-        onClose={() => setIsDbModalOpen(false)}
-        onConfigChanged={() => setDbConfig(getStoredSupabaseConfig())}
-      />
     </>
   );
 };
